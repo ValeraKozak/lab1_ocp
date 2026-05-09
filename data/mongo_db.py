@@ -1,15 +1,13 @@
-from pymongo import MongoClient
 from data.database_base import IDatabase
 from factories.employee_factory import EmployeeFactory
-from data.singleton_connection import SingletonConnection
+from data.singleton_connection import MongoClientSingleton
 
 class MongoDB(IDatabase):
     def __init__(self, uri="mongodb://localhost:27017/"):
-        self.singleton = SingletonConnection(uri)
+        self.client_singleton = MongoClientSingleton(uri)
 
     def _collection(self):
-        client = MongoClient(self.singleton.connection_string)
-        db = client["CompanyDB"]
+        db = self.client_singleton.client["CompanyDB"]
         return db["employees"]
 
     def get_employees(self):

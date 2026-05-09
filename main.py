@@ -1,48 +1,59 @@
-import data.sql_server_db
-import data.mongo_db
-import data.excel_db
-
 from factories.database_factory import DatabaseFactory
 from services.employee_service import EmployeeService
 from builders.employee_builder import EmployeeBuilder
 
-def create_new_departments_from_prototype(source_department_employees):
+
+def select_role_templates(employees):
+    templates = {}
+    required_types = ("Manager", "OfficeClerk", "SalesManager", "SysAdmin")
+
+    for employee in employees:
+        templates.setdefault(employee.__class__.__name__, employee)
+
+    missing_types = [employee_type for employee_type in required_types if employee_type not in templates]
+    if missing_types:
+        raise ValueError(f"Missing employee roles in source department: {', '.join(missing_types)}")
+
+    return [templates[employee_type] for employee_type in required_types]
+
+
+def create_department_with_prototype(source_department_employees, department_name, starting_id, names):
     if len(source_department_employees) < 4:
         raise ValueError(
             "The source department must contain at least 4 employees: "
             "Manager, OfficeClerk, SalesManager and SysAdmin."
         )
+    if len(names) != len(source_department_employees):
+        raise ValueError("Names list must match the number of employee templates.")
 
-    clone_hr = [employee.clone() for employee in source_department_employees]
-    clone_fin = [employee.clone() for employee in source_department_employees]
+    clones = [employee.clone() for employee in source_department_employees]
+    for index, employee in enumerate(clones):
+        employee.id = starting_id + index + 1
+        employee.name = names[index]
+        employee.department = department_name
+    return clones
 
-    hr_names = ["Ivan Koval", "Olha Romaniuk", "Petro Sales", "Taras Admin"]
-    fin_names = ["Maria Bondar", "Ihor Klym", "Oleh Trade", "Sofia Net"]
 
-    for index, employee in enumerate(clone_hr):
-        employee.id = 100 + index + 1
-        employee.name = hr_names[index]
-        employee.department = "HR"
+def create_department_with_builder(source_department_employees, department_name, starting_id, names):
+    if len(names) != len(source_department_employees):
+        raise ValueError("Names list must match the number of employee templates.")
 
-    for index, employee in enumerate(clone_fin):
-        employee.id = 200 + index + 1
-        employee.name = fin_names[index]
-        employee.department = "Finance"
-
-    return clone_hr, clone_fin
-
-def create_additional_employees_with_builder():
     builder = EmployeeBuilder()
-    reserve = [
-        builder.build_manager(301, "Roman Director", "Reserve", 33000, 5000).get_result(),
-        builder.build_office_clerk(302, "Nadia Clerk", "Reserve", 185, 160).get_result(),
-        builder.build_sales_manager(303, "Arsen Seller", "Reserve", 22000, 0.04, 90000).get_result(),
-        builder.build_sys_admin(304, "Denys Support", "Reserve", 29000, 10, 350).get_result(),
-    ]
-    return reserve
+    built_department = []
+
+    for index, employee in enumerate(source_department_employees):
+        data = employee.to_dict()
+        data["id"] = starting_id + index + 1
+        data["name"] = names[index]
+        data["department"] = department_name
+        built_department.append(builder.build_from_data(data).get_result())
+
+    return built_department
+
 
 def main():
-    print("Choose DB: sql | mongo | excel")
+    available_dbs = " | ".join(DatabaseFactory.available_databases())
+    print(f"Choose DB: {available_dbs}")
     db_type = input("> ").strip().lower()
 
     db = DatabaseFactory.create_database(db_type)
@@ -53,12 +64,21 @@ def main():
 
     source_department = employees[0].department
     source_department_employees = [e for e in employees if e.department == source_department]
+    templates = select_role_templates(source_department_employees)
 
-    hr_department, finance_department = create_new_departments_from_prototype(source_department_employees)
+    hr_department = create_department_with_prototype(
+        templates,
+        "HR",
+        100,
+        ["Ivan Koval", "Olha Romaniuk", "Petro Sales", "Taras Admin"],
+    )
+    finance_department = create_department_with_builder(
+        templates,
+        "Finance",
+        200,
+        ["Maria Bondar", "Ihor Klym", "Oleh Trade", "Sofia Net"],
+    )
     all_employees = source_department_employees + hr_department + finance_department
-
-    # Builder is implemented and demonstrated here
-    _builder_demo = create_additional_employees_with_builder()
 
     db.save_employees(all_employees)
 

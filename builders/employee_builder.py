@@ -1,27 +1,35 @@
-from models.manager import Manager
-from models.office_clerk import OfficeClerk
-from models.sales_manager import SalesManager
-from models.sys_admin import SysAdmin
+from factories.employee_factory import EmployeeFactory
 
 class EmployeeBuilder:
     def __init__(self):
         self.employee = None
 
-    def build_manager(self, id, name, department, base_salary, bonus):
-        self.employee = Manager(id, name, department, base_salary, bonus)
+    def build(self, employee_type, **data):
+        payload = dict(data)
+        payload["type"] = employee_type
+        self.employee = EmployeeFactory.create_employee(payload)
         return self
 
-    def build_office_clerk(self, id, name, department, hourly_rate, hours_per_month):
-        self.employee = OfficeClerk(id, name, department, hourly_rate, hours_per_month)
+    def build_from_data(self, data):
+        self.employee = EmployeeFactory.create_employee(data)
         return self
 
-    def build_sales_manager(self, id, name, department, base_salary, commission_rate, monthly_sales):
-        self.employee = SalesManager(id, name, department, base_salary, commission_rate, monthly_sales)
-        return self
+    def __getattr__(self, name):
+        if not name.startswith("build_"):
+            raise AttributeError(f"{self.__class__.__name__!r} object has no attribute {name!r}")
 
-    def build_sys_admin(self, id, name, department, base_salary, on_call_hours, on_call_rate):
-        self.employee = SysAdmin(id, name, department, base_salary, on_call_hours, on_call_rate)
-        return self
+        employee_type = name[6:]
+        fields = EmployeeFactory.get_build_fields(employee_type)
+
+        def dynamic_builder(*args):
+            if len(args) != len(fields):
+                raise TypeError(
+                    f"{name}() takes exactly {len(fields)} arguments, but {len(args)} were given"
+                )
+            data = dict(zip(fields, args))
+            return self.build(employee_type, **data)
+
+        return dynamic_builder
 
     def get_result(self):
         if self.employee is None:

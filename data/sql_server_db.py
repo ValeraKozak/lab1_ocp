@@ -1,16 +1,16 @@
 import pyodbc
 from data.database_base import IDatabase
 from factories.employee_factory import EmployeeFactory
-from data.singleton_connection import SingletonConnection
+from data.singleton_connection import SQLServerConnectionManager
 
 class SQLServerDB(IDatabase):
     def __init__(self):
-        self.singleton = SingletonConnection(
+        self.connection_manager = SQLServerConnectionManager(
             "DRIVER={ODBC Driver 17 for SQL Server};SERVER=localhost;DATABASE=CompanyDB;Trusted_Connection=yes;"
         )
 
     def _connect(self):
-        return pyodbc.connect(self.singleton.connection_string)
+        return pyodbc.connect(self.connection_manager.connection_string)
 
     def get_employees(self):
         employees = []

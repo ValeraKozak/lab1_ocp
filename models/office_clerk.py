@@ -1,10 +1,24 @@
 from models.employee import Employee
 
+
 class OfficeClerk(Employee):
+    type_name = "OfficeClerk"
+    build_fields = ("id", "name", "department", "hourly_rate", "hours_per_month")
+
     def __init__(self, id, name, department, hourly_rate, hours_per_month):
         super().__init__(id, name, department)
         self.hourly_rate = float(hourly_rate)
         self.hours_per_month = float(hours_per_month)
+
+    @classmethod
+    def from_data(cls, data):
+        return cls(
+            data["id"],
+            data["name"],
+            data["department"],
+            cls.as_number(data.get("hourly_rate")),
+            cls.as_number(data.get("hours_per_month")),
+        )
 
     def compensation(self):
         return self.hourly_rate * self.hours_per_month
